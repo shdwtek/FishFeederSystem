@@ -100,8 +100,8 @@ void printWEB() {
             client.println();
            
             //create the buttons
-            client.print("Click <a href=\"/H\">here</a> turn the LED on<br>");
-            client.print("Click <a href=\"/L\">here</a> turn the LED off<br><br>");
+            client.print("Click <a href=\"/H\">here</a> turn the feeder on<br>");
+            client.print("Click <a href=\"/L\">here</a> turn the feeder off<br><br>");
             
             int randomReading = analogRead(A1);
             client.print("Random reading from analog pin: ");
