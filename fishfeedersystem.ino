@@ -125,7 +125,7 @@ void printWEB() {
       
        if (currentLine.endsWith("GET /H")) {
         digitalWrite(12, HIGH);
-        delay(100);
+        delay(25);
         digitalWrite(12, LOW);
         }
        
