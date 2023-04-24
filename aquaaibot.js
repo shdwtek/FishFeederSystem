@@ -36,21 +36,43 @@ const client = new tmi.Client({
 
 client.connect();
 
-client.on('message', (channel, tags, message, self) => {
-  if(self || !message.startsWith('@')) {
-    return;
-  }
+const sixHoursInMilliseconds = 6 * 60 * 60 * 1000; // convert 6 hours to milliseconds
+var lastFeedTime = 0;
+
+client.on('message', (channel, tags, message, self, understate) => {
 
   const args = message.slice(1).split(' ');
   const command = args.shift().toLowerCase();
 
-  
+  // Handle !feedfish
+  if (command === 'feedfish') {
+    const currentTime = new Date().getTime();
+    if (currentTime - lastFeedTime < sixHoursInMilliseconds) {
+      client.say(channel, `@${tags.username} You can only feed the fish once every 6 hours!`);
+      return;
+    }
+    const request = http.request({
+      hostname: '192.168.0.203', // Replace with correct hostname IP
+      port: 8082, // Replace with correct Port
+      path: '/H',
+      method: 'GET'
+    }, (response) => {
+      client.say(channel, `@${tags.username} Thanks for feeding the fish!`);
+      lastFeedTime = currentTime; // Update the last feed time
+      console.log(`Response: ${response.statusCode}`);
+    });
+    request.on('error', (error) => {
+      client.say(channel, `@${tags.username} There was an error reaching the feeder.`);
+      console.error(error);
+    });
+    request.end();
+    return;
+  }
 
-
-  if(command === process.env.TWITCH_BOT_USERNAME) {
+  // Handle any message containing 'aquaaibot' (case-insensitive)
+  if(message.match(new RegExp(process.env.TWITCH_BOT_USERNAME, 'i'))) {
     (async () => {
       var tankData = await doRequest('http://shdwtek.net/temp.html'); // Replace URL with correct address
-     
       tankData = tankData.replace(/<[^>]+>/g, ' ').trim().replace(/ +/, ' ').split(' ');
 
       var time = os.uptime();
@@ -63,40 +85,14 @@ client.on('message', (channel, tags, message, self) => {
         .replace('{tss}', tankData[2] + 'PPM')
         .replace('{level}', tankData[3])
         .replace('{uptime}', day + 'days');
-      
-      
+
       // Add a period if necessary so the bot doesn't try to complete the prompt.
       if (!['.','?'].includes(promptText.slice(-1))) {
         promptText = `${promptText}.}`;
       }
       client.say(channel, `@${tags.username}, ${await generator.generate(promptText)}`);
     })();
+    return;
   }
+
 });
-
-client.on('connected', (address, port) => {
-  console.log(`Connected to ${address}:${port}`);
-});
-
-
-client.on('chat', (channel, userstate, message, self) => {
-  if (message === '!feedfish') {
-    const request = http.request({
-      hostname: '192.168.0.201', // Replace with correct hostname IP
-      port: 8082, // Replace with correct Port
-      path: '/H',
-      method: 'GET'
-    }, (response) => {
-      console.log(`Response: ${response.statusCode}`);
-    });
-    
-    request.on('error', (error) => {
-      console.error(error);
-    });
-    
-    request.end();
-  }
-});
-
-client.connect();
-
