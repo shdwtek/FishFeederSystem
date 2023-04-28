@@ -1,5 +1,11 @@
 #include <WiFiNINA.h>
 
+#define LEDPIN 13 // Pin 13: Arduino has an LED connected on pin 13
+
+#define SENSORPIN 4 // Pin 4: Arduino has IR Sensor connected on Pin 4
+
+#define FOOD_THRESHOLD 1
+
 char ssid[] = "SSID";             //  your network SSID (name) between the " "
 char pass[] = "PASS";      // your network password between the " "
 int keyIndex = 0;                 // your network key Index number (needed only for WEP)
@@ -10,26 +16,80 @@ WiFiClient client = server.available();
 
 int solenoid = 12;
 
+// IFTTT Init
+
+int    HTTP_PORT   = 80;
+String HTTP_METHOD = "POST";
+char   HOST_NAME[] = "maker.ifttt.com";
+String PATH_NAME   = "/trigger/send-email/with/key/WEBHOOKKEY"; // change your Webhooks key
+
+bool isSent = false;
+
+// variables will change:
+int sensorState = 0; 
+int lastState = 0; // variable for reading the pushbutton status
+
+int foodStatus = 0; // variable for showing food level status
+
 void setup() {
   Serial.begin(9600);
   pinMode(solenoid, OUTPUT);
   while (!Serial);
-  
+    
   enable_WiFi();
   connect_WiFi();
 
   server.begin();
-  printWifiStatus();
-
+  printWifiStatus();  
+  
+  // initialize the LED pin as an output:
+  pinMode(LEDPIN, OUTPUT);      
+  // initialize the sensor pin as an input:
+  pinMode(SENSORPIN, INPUT);     
+  digitalWrite(SENSORPIN, HIGH); // turn on the pullup
 }
 
-void loop() {
-  client = server.available();
-
+void loop(){
+  
   if (client) {
     printWEB();
   }
+  
+  // read the state of the pushbutton value:
+  sensorState = digitalRead(SENSORPIN);
+
+  // check if the sensor beam is broken
+  // if it is, the sensorState is LOW:
+  if (sensorState == LOW) {     
+    // turn LED on:
+    digitalWrite(LEDPIN, HIGH);     
+  } 
+  else {
+    // turn LED off:
+    digitalWrite(LEDPIN, LOW); 
+  }
+  
+  if (sensorState && !lastState) {
+    Serial.println("Feeder Food Level Ok");
+  foodStatus = 1;
+  } 
+  if (!sensorState && lastState) {
+    Serial.println("Feeder Food Level Low");
+  foodStatus = 0;
+  }
+  lastState = sensorState;
+  
+  if (foodStatus <= FOOD_THRESHOLD) {
+    if (isSent == false) { // to make sure that Arduino does not send duplicated emails
+      sendEmail(foodStatus);
+      isSent = true;
+    }
+  } else {
+    isSent = false; // reset to send if the temperature exceeds threshold again
+  }
 }
+
+
 
 void printWifiStatus() {
   // print the SSID of the network you're attached to:
@@ -134,5 +194,36 @@ void printWEB() {
     // close the connection:
     client.stop();
     Serial.println("client disconnected");
+  }
+}
+
+// IFTTT Send Email Notification
+void sendEmail(float foodStatus) {
+  // connect to IFTTT server on port 80:
+  if (client.connect(HOST_NAME, HTTP_PORT)) {
+    // if connected:
+    Serial.println("Connected to server");
+    // make a HTTP request:
+    String queryString = "?value1=" + String(foodStatus);
+    // send HTTP header
+    client.println("GET " + PATH_NAME + queryString + " HTTP/1.1");
+    client.println("Host: " + String(HOST_NAME));
+    client.println("Connection: close");
+    client.println(); // end HTTP header
+
+    while (client.connected()) {
+      if (client.available()) {
+        // read an incoming byte from the server and print it to serial monitor:
+        char c = client.read();
+        Serial.print(c);
+      }
+    }
+
+    // the server's disconnected, stop the client:
+    client.stop();
+    Serial.println();
+    Serial.println("disconnected");
+  } else {// if not connected:
+    Serial.println("connection failed");
   }
 }
