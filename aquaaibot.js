@@ -36,7 +36,7 @@ const client = new tmi.Client({
 
 client.connect();
 
-const sixHoursInMilliseconds = 6 * 60 * 60 * 1000; // convert 6 hours to milliseconds
+const eightHoursInMilliseconds = 8 * 60 * 60 * 1000; // convert 6 hours to milliseconds
 var lastFeedTime = 0;
 
 client.on('message', (channel, tags, message, self, understate) => {
@@ -47,8 +47,8 @@ client.on('message', (channel, tags, message, self, understate) => {
   // Handle !feedfish
   if (command === 'feedfish') {
     const currentTime = new Date().getTime();
-    if (currentTime - lastFeedTime < sixHoursInMilliseconds) {
-      client.say(channel, `@${tags.username} You can only feed the fish once every 6 hours!`);
+    if (currentTime - lastFeedTime < eightHoursInMilliseconds) {
+      client.say(channel, `@${tags.username} You can only feed the fish once every 8 hours!`);
       return;
     }
     const request = http.request({
